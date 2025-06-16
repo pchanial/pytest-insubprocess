@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.8.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-insubprocess"
+authors = [
+    { name = "Pierre Chanial", email = "pchanial@apc.in2p3.fr" },
+]
+dynamic = ["version"]
+description = "A pytest plugin to execute test cases in a subprocess"
+readme = "README.md"
+license = "MIT"
+keywords = ["pytest", "testing", "subprocess"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Pytest",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "pytest>=7.4",
+    "xmltodict",
+]
+[project.optional-dependencies]
+dev = ['pytest-rerunfailures']
+
+[project.entry-points.pytest11]
+insubprocess = "pytest_insubprocess"
+
+[tool.ruff]
+line-length = 100
+fix = true           # autofix issues
+force-exclude = true # useful with ruff-pre-commit plugin
+
+[tool.ruff.lint]
+select = [
+    'ARG001', # flake8-unused-function-arguments
+    'E',      # pycodestyle-errors
+    'F',      # pyflakes
+    'I',      # isort
+    'UP',     # pyupgrade
+    'T10',    # flake8-debugger
+]
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.hatch.build]
+include = [
+    "pytest_insubprocess.py",
+    "README.md",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.pytest.ini_options]
+addopts = '-ra --color=yes --strict-markers'
+testpaths = ['tests']
