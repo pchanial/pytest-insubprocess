@@ -29,13 +29,13 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
     except FileNotFoundError:
         return _create_error_report(item, 'Could not find the junit XML file.')
 
-    pytest_report = _parse_junit_xml(item, xml_report)
+    pytest_report = _parse_xml_report(item, xml_report)
     item.ihook.pytest_runtest_logreport(report=pytest_report)
     return True
 
 
 def _execute_in_subprocess(item: pytest.Item) -> str:
-    """Execute the test in a subprocess using its nodeid."""
+    """Execute the test in a subprocess and returns the generated JUnit XML report as a string."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         junit_xml_path = Path(tmpdir) / 'results.xml'
@@ -75,7 +75,7 @@ def _get_options(config: pytest.Config) -> list[str]:
     return cmd
 
 
-def _parse_junit_xml(item: pytest.Item, junit_xml: str) -> TestReport:
+def _parse_xml_report(item: pytest.Item, junit_xml: str) -> TestReport:
     try:
         root = xmltodict.parse(junit_xml)
     except ExpatError:
@@ -167,7 +167,7 @@ def _parse_testcase_outcome(
 
 
 def _create_error_report(item: pytest.Item, message: str) -> pytest.TestReport:
-    """Crée un rapport d'erreur pour les cas exceptionnels."""
+    """Creates an error report for the exceptional cases."""
     return TestReport(
         nodeid=item.nodeid,
         location=item.location,
