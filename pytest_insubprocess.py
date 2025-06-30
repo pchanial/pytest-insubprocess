@@ -24,7 +24,19 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
 
     item.session._setupstate.teardown_exact(nextitem)
 
-    # Temporary directory for the JUnit XML report
+    try:
+        xml_report = _execute_in_subprocess(item)
+    except FileNotFoundError:
+        return _create_error_report(item, 'Could not find the junit XML file.')
+
+    pytest_report = _parse_junit_xml(item, xml_report)
+    item.ihook.pytest_runtest_logreport(report=pytest_report)
+    return True
+
+
+def _execute_in_subprocess(item: pytest.Item) -> str:
+    """Execute the test in a subprocess using its nodeid."""
+
     with tempfile.TemporaryDirectory() as tmpdir:
         junit_xml_path = Path(tmpdir) / 'results.xml'
 
@@ -39,7 +51,9 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
             '--junitxml=' + junit_xml_path.as_posix(),
             item.nodeid,
         ] + _get_options(item.config)
+
         env = os.environ | {'_PYTEST_INSUBPROCESS': '1'}
+
         _ = subprocess.run(
             cmd,
             capture_output=True,
@@ -49,14 +63,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
         )
 
         # Parse the generated JUnit XML report
-        try:
-            junit_xml = junit_xml_path.read_text()
-        except FileNotFoundError:
-            return _create_error_report(item, 'Could not find the junit XML file.')
-
-    report = _parse_junit_xml(item, junit_xml)
-    item.ihook.pytest_runtest_logreport(report=report)
-    return True
+        return junit_xml_path.read_text()
 
 
 def _get_options(config: pytest.Config) -> list[str]:
