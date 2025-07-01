@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -9,6 +10,8 @@ from xml.parsers.expat import ExpatError
 import pytest
 import xmltodict
 from _pytest.reports import TestReport
+
+SYSTEM_OUT_REGEX = re.compile(r'-+ Captured Out -*\n(?P<stdout>.*)', re.MULTILINE | re.DOTALL)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -103,7 +106,11 @@ def _parse_xml_report(item: pytest.Item, junit_xml: str) -> TestReport:
 
     capture = item.config.getoption('--capture')
     if capture in ['no', 'tee-sys']:
-        print(system_out)
+        match = SYSTEM_OUT_REGEX.search(system_out)
+        if match:
+            print(match['stdout'])
+        else:
+            print(system_out)
 
     # Create the test report
     report = TestReport(
