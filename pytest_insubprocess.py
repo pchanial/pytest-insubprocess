@@ -14,6 +14,16 @@ from _pytest.reports import TestReport
 SYSTEM_OUT_REGEX = re.compile(r'-+ Captured Out -*\n(?P<stdout>.*)', re.MULTILINE | re.DOTALL)
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    group = parser.getgroup('insubprocess')
+    group.addoption(
+        '--insubprocess',
+        action='store_true',
+        default=False,
+        help='run all tests in isolated subprocesses',
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'insubprocess: run test in an isolated subprocess')
 
@@ -21,8 +31,14 @@ def pytest_configure(config: pytest.Config) -> None:
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> object | None:
     # Check if the test should be executed in a subprocess
-    insubprocess = item.get_closest_marker('insubprocess')
-    if not insubprocess or os.environ.get('_PYTEST_INSUBPROCESS') == '1':
+    insubprocess_option = item.config.getoption('--insubprocess')
+    insubprocess_marker = item.get_closest_marker('insubprocess')
+
+    # Skip if already running in a subprocess or if neither option nor marker is set
+    if os.environ.get('_PYTEST_INSUBPROCESS') == '1':
+        return None  # Normal handling
+
+    if not insubprocess_option and not insubprocess_marker:
         return None  # Normal handling
 
     item.session._setupstate.teardown_exact(nextitem)
@@ -57,13 +73,23 @@ def _execute_in_subprocess(item: pytest.Item) -> str:
 
         env = os.environ | {'_PYTEST_INSUBPROCESS': '1'}
 
-        _ = subprocess.run(
+        result = subprocess.run(
             cmd,
             capture_output=True,
             encoding='utf-8',
             check=False,
             env=env,
         )
+
+        # Debug: print subprocess output if needed
+        if result.returncode != 0 and not junit_xml_path.exists():
+            import warnings
+
+            warnings.warn(
+                f'Subprocess failed with return code {result.returncode}\n'
+                f'stdout: {result.stdout}\n'
+                f'stderr: {result.stderr}'
+            )
 
         # Parse the generated JUnit XML report
         return junit_xml_path.read_text()
